@@ -10,12 +10,20 @@ infrastructure level.
 """
 
 import aws_cdk as cdk
+from cdk_nag import AwsSolutionsChecks
 
 from stacks.data_stack import DataStack
 from stacks.compute_stack import ComputeStack
 from stacks.frontend_stack import FrontendStack
 
 app = cdk.App()
+
+# Runs the AWS Solutions rule pack against every stack on every synth (so
+# locally and in the PR workflow's `cdk synth` step, not just at deploy
+# time). Findings show up as CDK synth warnings/errors; anything
+# deliberately not fixed gets a NagSuppressions entry with a reason, not
+# silently ignored.
+cdk.Aspects.of(app).add(AwsSolutionsChecks(verbose=True))
 
 ENVIRONMENTS = ["dev", "prod"]
 

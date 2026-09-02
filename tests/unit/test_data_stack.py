@@ -20,5 +20,8 @@ def test_data_stack_creates_bucket_and_table():
     stack = DataStack(app, "TestData", env_name="dev")
     template = Template.from_stack(stack)
 
-    template.resource_count_is("AWS::S3::Bucket", 1)
+    # Two buckets by design: the upload bucket and its dedicated access-log
+    # bucket (see the AccessLogBucket comment in data_stack.py for why a
+    # log bucket doesn't log to itself).
+    template.resource_count_is("AWS::S3::Bucket", 2)
     template.resource_count_is("AWS::DynamoDB::Table", 1)
