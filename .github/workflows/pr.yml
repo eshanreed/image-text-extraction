@@ -1,0 +1,59 @@
+name: PR checks
+
+# Runs on every pull request into main. Nothing here touches real AWS: no
+# credentials are configured in this workflow at all. `cdk synth` works
+# without them because none of our stacks pin an account/region (see
+# infra/app.py) -- they're environment-agnostic, so CDK never needs to look
+# anything up in a real account just to render the CloudFormation templates.
+# That's also what runs cdk-nag: AwsSolutionsChecks is wired in as an Aspect
+# in app.py, so it fires on every synth, this one included -- a clean synth
+# here is also a clean security/best-practice scan.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Lint, scan, test, synth
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Matches the Lambda runtime (see infra/stacks/compute_stack.py)
+          # so what CI lints/tests/synths with is the same interpreter
+          # version the code actually runs under in AWS.
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install Python dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Static security scan (Bandit)
+        run: bandit -q -r infra lambda
+
+      - name: Unit tests (pytest)
+        run: pytest tests/unit -q
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install AWS CDK CLI
+        # Pinned to the version this project has actually been built and
+        # verified against (matches the working local setup) rather than
+        # "latest" -- same reasoning as pinning cdk-nag in
+        # infra/requirements.txt: a CLI bump shouldn't silently change what
+        # CI does on the next PR with no corresponding code change.
+        run: npm install -g aws-cdk@2.1139.0
+
+      - name: cdk synth (includes cdk-nag)
+        working-directory: infra
+        run: cdk synth

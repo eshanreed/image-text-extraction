@@ -11,6 +11,7 @@ venv/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 
 # Env / secrets
 .env
@@ -20,3 +21,6 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+
+# Delivery zips (these are how files get to Eshan's machine, never repo content)
+*.zip

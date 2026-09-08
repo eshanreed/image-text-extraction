@@ -1,5 +1,6 @@
 -r infra/requirements.txt
 pytest>=8.0.0
 bandit>=1.7.0
+ruff>=0.16.0
 boto3>=1.34.0
 moto[dynamodb,s3,textract]>=5.0.0

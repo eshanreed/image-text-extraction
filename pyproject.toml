@@ -1,0 +1,17 @@
+[tool.ruff.lint]
+# Selection kept explicit and stable rather than riding ruff's default rule
+# set (which has grown over ruff's own releases and isn't something we want
+# silently changing what CI enforces). E4/E7/E9 are the core pycodestyle
+# checks (imports, statements, syntax errors) and F is pyflakes (unused
+# imports/names, undefined names) -- the same baseline flake8 runs out of
+# the box. Import-sorting (I) and stylistic-opinion rules are deliberately
+# left off: app.py orders its stack imports by deploy order (Data, Compute,
+# Frontend), not alphabetically, and that's a readability choice, not an
+# oversight ruff should "fix."
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests extend sys.path to reach infra/stacks before importing from it,
+# since infra/ isn't an installed package -- so the import has to come
+# after that sys.path.insert() call, which E402 would otherwise flag.
+"tests/**/*.py" = ["E402"]
