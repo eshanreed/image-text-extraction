@@ -1,4 +1,4 @@
-# Image Text Extraction — AWS Portfolio Project
+# Image Text Extraction — AWS Project
 
 A small 3-tier web app that extracts text from uploaded images using Amazon
 Textract. Built as a portfolio piece to have something concrete to walk
