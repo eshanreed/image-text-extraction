@@ -49,6 +49,7 @@ for env_name in ENVIRONMENTS:
         f"{prefix}-Frontend",
         env_name=env_name,
         api_url=compute_stack.api_url,
+        access_log_bucket=data_stack.access_log_bucket,
     )
 
 app.synth()

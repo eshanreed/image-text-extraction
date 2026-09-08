@@ -55,7 +55,13 @@ class DataStack(Stack):
         # app. This bucket is disposable in both envs: losing old access
         # logs isn't a data-loss incident the way losing UploadBucket or
         # ResultsTable would be.
-        access_log_bucket = s3.Bucket(
+        # Exposed as self.access_log_bucket (not just a local var) so
+        # FrontendStack can reuse it for the site bucket's and CloudFront
+        # distribution's access logs too, rather than each stack growing
+        # its own log bucket. One-directional reference (Frontend reads
+        # from Data), so no risk of the dependency-cycle problem documented
+        # on upload_bucket below.
+        self.access_log_bucket = s3.Bucket(
             self,
             "AccessLogBucket",
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
@@ -79,7 +85,7 @@ class DataStack(Stack):
             enforce_ssl=True,
             removal_policy=RemovalPolicy.RETAIN if is_prod else RemovalPolicy.DESTROY,
             auto_delete_objects=not is_prod,
-            server_access_logs_bucket=access_log_bucket,
+            server_access_logs_bucket=self.access_log_bucket,
             server_access_logs_prefix="upload-bucket-access-logs/",
             # Publishes all S3 events to the account's default EventBridge
             # bus. Deliberately NOT using bucket.add_event_notification()
@@ -127,7 +133,7 @@ class DataStack(Stack):
 
         # --- cdk-nag: accepted findings, documented rather than silently ignored ---
         NagSuppressions.add_resource_suppressions(
-            access_log_bucket,
+            self.access_log_bucket,
             [
                 {
                     "id": "AwsSolutions-S1",

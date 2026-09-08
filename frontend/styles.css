@@ -1,8 +1,177 @@
-/* Placeholder — styled once the real UI exists. */
+:root {
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-border: #e2e2e2;
+  --color-text: #1a1a1a;
+  --color-text-muted: #6b6b6b;
+  --color-accent: #1a56db;
+  --color-accent-hover: #1544ac;
+  --color-error: #b3261e;
+  --color-success: #1a7f37;
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  margin: 0;
+  padding: 2.5rem 1rem 4rem;
+}
+
+main {
   max-width: 640px;
-  margin: 4rem auto;
-  padding: 0 1rem;
-  color: #1a1a1a;
+  margin: 0 auto;
+}
+
+header h1 {
+  font-size: 1.75rem;
+  margin: 0 0 0.25rem;
+}
+
+.subtitle {
+  color: var(--color-text-muted);
+  margin: 0 0 2rem;
+}
+
+section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.upload-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.file-picker {
+  display: inline-flex;
+  align-items: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.file-picker input {
+  display: none;
+}
+
+#file-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button {
+  font: inherit;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.6rem 1.1rem;
+  cursor: pointer;
+}
+
+#upload-button {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+#upload-button:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+#upload-button:disabled {
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.status {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-text-muted);
+  min-height: 1.2em;
+}
+
+.status-error {
+  color: var(--color-error);
+}
+
+.result-panel h2,
+.history-panel h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+#result-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin: 0;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history-empty {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.history-item + .history-item {
+  border-top: 1px solid var(--color-border);
+}
+
+.history-item-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: none;
+  padding: 0.6rem 0.25rem;
+  text-align: left;
+  color: var(--color-text);
+}
+
+.history-item-button:hover {
+  background: var(--color-bg);
+}
+
+.history-time {
+  font-size: 0.9rem;
+}
+
+.history-status {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+}
+
+.history-status-done {
+  color: var(--color-success);
+}
+
+.history-status-failed {
+  color: var(--color-error);
 }

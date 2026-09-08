@@ -7,15 +7,35 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!--
-    Placeholder markup. Real UI (upload form, result view, history list)
-    comes once ComputeStack's API is wired up and we know the actual
-    request/response shapes.
-  -->
   <main>
-    <h1>Image Text Extraction</h1>
-    <p>Frontend not yet implemented.</p>
+    <header>
+      <h1>Image Text Extraction</h1>
+      <p class="subtitle">Upload a JPEG or PNG and get the text back out, via Amazon Textract.</p>
+    </header>
+
+    <section class="upload-panel">
+      <label class="file-picker" for="file-input">
+        <input type="file" id="file-input" accept="image/jpeg,image/png" />
+        <span id="file-picker-label">Choose an image&hellip;</span>
+      </label>
+      <button id="upload-button" type="button" disabled>Upload &amp; extract</button>
+      <p id="upload-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="result-panel" id="result-panel" hidden>
+      <h2>Extracted text</h2>
+      <pre id="result-text"></pre>
+    </section>
+
+    <section class="history-panel">
+      <h2>History</h2>
+      <ul id="history-list" class="history-list">
+        <li class="history-empty">No extractions yet.</li>
+      </ul>
+    </section>
   </main>
+
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
