@@ -113,6 +113,30 @@ class DataStack(Stack):
             # matches these events and targets the Lambda, keeping the
             # cross-stack reference pointing one direction only.
             event_bridge_enabled=True,
+            # Browser CORS for the presigned-URL PUT. app.js uploads the
+            # image straight from the browser to this bucket (not through
+            # API Gateway -- see ComputeStack's module docstring, step 2 of
+            # the request flow), and that's a genuinely cross-origin request
+            # from the site's CloudFront domain to S3's own endpoint. It
+            # needs CORS configured on THIS bucket; API Gateway's CORS
+            # config (in ComputeStack) covers a completely separate hop and
+            # doesn't help here at all. Missing this entirely is what broke
+            # the first real upload attempt (browser refused to even send
+            # the PUT, surfaced as a generic "NetworkError"). allowed_origins
+            # is "*" for the same reason ComputeStack's API CORS is: this
+            # stack is deployed before FrontendStack exists, so it has no
+            # way to know the CloudFront domain without the same cross-stack
+            # dependency cycle documented above. Scoped tightly otherwise --
+            # PUT only, since that's the only browser-to-S3 call this app
+            # actually makes.
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.PUT],
+                    allowed_origins=["*"],
+                    allowed_headers=["*"],
+                    max_age=3000,
+                )
+            ],
         )
 
         # --- DynamoDB: extraction results -----------------------------------------
