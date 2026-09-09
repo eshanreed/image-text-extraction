@@ -19,6 +19,21 @@ const uploadStatus = document.getElementById("upload-status");
 const resultPanel = document.getElementById("result-panel");
 const resultText = document.getElementById("result-text");
 const historyList = document.getElementById("history-list");
+const envBadge = document.getElementById("env-badge");
+
+// window.ENVIRONMENT_NAME comes from config.js, same as API_BASE_URL — see
+// FrontendStack for why. Dev and prod are two independent copies of the
+// same stacks with two different, equally random-looking CloudFront URLs;
+// this badge is the fix for "which one am I looking at right now."
+function initEnvironmentBadge() {
+  const env = window.ENVIRONMENT_NAME;
+  if (!env) return; // not set outside a real deploy — leave it hidden
+  envBadge.textContent = env.toUpperCase();
+  envBadge.classList.add(`env-badge-${env}`);
+  envBadge.hidden = false;
+}
+
+initEnvironmentBadge();
 
 function apiUrl(path) {
   const base = (window.API_BASE_URL || "").replace(/\/$/, "");

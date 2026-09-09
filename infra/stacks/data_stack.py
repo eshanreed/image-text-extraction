@@ -25,6 +25,7 @@ no per-user partitioning in v1) and `created_at` as the sort key, so
 """
 
 from aws_cdk import (
+    CfnOutput,
     Stack,
     RemovalPolicy,
     aws_s3 as s3,
@@ -130,6 +131,15 @@ class DataStack(Stack):
             projection_type=dynamodb.ProjectionType.INCLUDE,
             non_key_attributes=["status", "image_key"],
         )
+
+        # --- outputs: so these names are visible without hunting through the
+        # console — printed at the end of every `cdk deploy` and always
+        # visible in this stack's CloudFormation "Outputs" tab. Mostly
+        # useful for debugging directly against the table/bucket; the
+        # thing people actually go looking for (the site URL) is output
+        # from FrontendStack instead.
+        CfnOutput(self, "UploadBucketName", value=self.upload_bucket.bucket_name)
+        CfnOutput(self, "ResultsTableName", value=self.results_table.table_name)
 
         # --- cdk-nag: accepted findings, documented rather than silently ignored ---
         NagSuppressions.add_resource_suppressions(

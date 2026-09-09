@@ -1,0 +1,127 @@
+name: Deploy
+
+# Runs on every push to main (so: after a PR merges, since main is the
+# protected/default branch). Deploys dev automatically, then prod only
+# after a human approves it -- see the "production" GitHub Environment
+# referenced below, which is what actually creates that pause. This is
+# the other half of the CI/CD story from pr.yml: that workflow proves the
+# code is correct without ever touching AWS; this one is what actually
+# changes AWS, and only for a push that already passed those checks (PRs
+# have to pass pr.yml before they can merge into main in the first
+# place).
+on:
+  push:
+    branches: [main]
+
+# id-token: write is what lets this workflow request a GitHub OIDC token
+# and hand it to AWS in exchange for temporary credentials (see the
+# "Configure AWS credentials" step below) -- no stored AWS access keys
+# anywhere in this repo or its GitHub secrets. contents: read is just
+# what actions/checkout needs.
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  # Pulled from a repository Variable (Settings -> Secrets and variables
+  # -> Actions -> Variables) rather than hardcoded here. The role's trust
+  # policy (in IAM) is what actually enforces this is only usable from
+  # this exact repo, on this exact branch -- see docs/decisions.md -- so
+  # this ARN isn't a secret in the sense of needing protection, nothing
+  # sensitive leaks by knowing it. It's kept out of the file anyway now
+  # that the repo is public, so the account ID isn't sitting in plain
+  # text in a public file for no reason.
+  DEPLOY_ROLE_ARN: ${{ vars.DEPLOY_ROLE_ARN }}
+
+jobs:
+  deploy-dev:
+    name: Deploy to dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: infra/requirements.txt
+
+      - name: Install CDK's Python dependencies
+        # infra/requirements.txt only, not requirements-dev.txt -- deploy
+        # doesn't need pytest/bandit/ruff/moto, only what app.py itself
+        # imports to synth and deploy.
+        run: pip install -r infra/requirements.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install AWS CDK CLI
+        run: npm install -g aws-cdk@2.1139.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: cdk deploy (Dev stacks only)
+        working-directory: infra
+        # --require-approval never: skips CDK's own interactive "do you
+        # want to deploy these changes" prompt, which would otherwise
+        # hang forever with no one there to answer it. That's a different
+        # thing from the *human* approval gate on prod below, which is
+        # enforced by the GitHub Environment on the deploy-prod job, not
+        # by CDK itself. cdk-nag still runs as part of this (it's wired
+        # in as an Aspect in app.py, so every synth runs it, deploy
+        # included) -- a newly-introduced nag finding fails this step
+        # before anything touches real AWS, same as it would fail
+        # `cdk synth` in the PR workflow.
+        run: cdk deploy 'ImageTextExtraction-Dev-*' --require-approval never
+
+  deploy-prod:
+    name: Deploy to prod
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    # This is the whole approval gate: a GitHub Environment named
+    # "production" with required reviewers configured in the repo's
+    # Settings -> Environments. A job targeting that environment pauses
+    # here, before any step below runs, until a required reviewer
+    # approves it in the GitHub UI. Nothing in this workflow file enforces
+    # that by itself -- it's entirely the environment's own configuration
+    # doing the work, which is what makes it possible to add or change
+    # reviewers later without touching this file at all.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: infra/requirements.txt
+
+      - name: Install CDK's Python dependencies
+        run: pip install -r infra/requirements.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install AWS CDK CLI
+        run: npm install -g aws-cdk@2.1139.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: cdk deploy (Prod stacks only)
+        working-directory: infra
+        run: cdk deploy 'ImageTextExtraction-Prod-*' --require-approval never

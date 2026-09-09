@@ -47,6 +47,7 @@ Not doing for v1 (documented, not overlooked):
 from pathlib import Path
 
 from aws_cdk import (
+    CfnOutput,
     RemovalPolicy,
     Stack,
     aws_cloudfront as cloudfront,
@@ -110,7 +111,19 @@ class FrontendStack(Stack):
 
         self.site_url = f"https://{self.distribution.distribution_domain_name}"
 
-        config_js = f'window.API_BASE_URL = "{api_url}";\n' if api_url else 'window.API_BASE_URL = "";\n'
+        # ENVIRONMENT_NAME rides along in the same generated config.js as
+        # API_BASE_URL, for the same reason: it doesn't exist until deploy
+        # time, so it can't be hand-typed into the static frontend/ files.
+        # index.html/app.js use it to show a small "DEV"/"PROD" badge on
+        # the page itself — dev and prod are two independent copies of the
+        # same stacks with two different CloudFront URLs, and neither URL
+        # says which is which on its own, so this is the fix for "which
+        # one am I looking at."
+        api_url_js = api_url if api_url else ""
+        config_js = (
+            f'window.API_BASE_URL = "{api_url_js}";\n'
+            f'window.ENVIRONMENT_NAME = "{env_name}";\n'
+        )
 
         s3_deployment.BucketDeployment(
             self,
@@ -123,6 +136,14 @@ class FrontendStack(Stack):
             distribution=self.distribution,
             distribution_paths=["/*"],
         )
+
+        # --- outputs: the site URL is the one thing people actually go
+        # looking for after a deploy — printed at the end of every
+        # `cdk deploy` and visible any time in this stack's CloudFormation
+        # "Outputs" tab, rather than having to dig for the CloudFront
+        # console entry and read its domain name back out.
+        CfnOutput(self, "SiteUrl", value=self.site_url)
+        CfnOutput(self, "Environment", value=env_name)
 
         # --- cdk-nag: accepted findings, documented rather than silently ignored ---
         NagSuppressions.add_resource_suppressions(

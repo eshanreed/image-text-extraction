@@ -31,6 +31,28 @@ main {
 header h1 {
   font-size: 1.75rem;
   margin: 0 0 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.env-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.env-badge-dev {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.env-badge-prod {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .subtitle {
