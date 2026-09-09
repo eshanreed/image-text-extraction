@@ -44,7 +44,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Only used to install the CDK CLI below (cdk itself is a Node
+          # tool, even though our infra code is Python). Node 20 reached
+          # end-of-life in March 2026, so this runs on 24, the current LTS.
+          node-version: "24"
 
       - name: Install AWS CDK CLI
         # Pinned to the version this project has actually been built and

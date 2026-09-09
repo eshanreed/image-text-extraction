@@ -1,6 +1,12 @@
+# CDK's own dependencies, plus what the Lambda handler unit tests need on
+# top of that: boto3 to call the handlers with, moto to fake DynamoDB
+# under them (Textract is patched directly instead of using moto's
+# Textract mock -- see tests/unit/lambda_handlers/test_extract.py for
+# why). Only the "dynamodb" extra is pulled in since that's the only
+# service backend these tests actually exercise.
 -r infra/requirements.txt
 pytest>=8.0.0
 bandit>=1.7.0
 ruff>=0.16.0
 boto3>=1.34.0
-moto[dynamodb,s3,textract]>=5.0.0
+moto[dynamodb]>=5.0.0

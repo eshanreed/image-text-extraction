@@ -31,6 +31,7 @@ from pathlib import Path
 
 import jsii
 from aws_cdk import (
+    CfnOutput,
     Duration,
     RemovalPolicy,
     Stack,
@@ -237,6 +238,8 @@ class ComputeStack(Stack):
         )
 
         self.api_url = self.api_stage.url
+
+        CfnOutput(self, "ApiUrl", value=self.api_url)
 
         # --- cdk-nag: accepted findings, documented rather than silently ignored ---
         NagSuppressions.add_resource_suppressions(
