@@ -68,11 +68,23 @@ class DataStack(Stack):
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             encryption=s3.BucketEncryption.S3_MANAGED,
             enforce_ssl=True,
-            # NOT BUCKET_OWNER_ENFORCED: S3's server-access-logging delivery
-            # mechanism (below, via server_access_logs_bucket) grants the
-            # logging service an ACL on this bucket, and ACLs are exactly
-            # what BUCKET_OWNER_ENFORCED disables. Left at CDK's default
-            # (ObjectWriter) so that grant can actually be applied.
+            # BUCKET_OWNER_PREFERRED, not S3's now-default BUCKET_OWNER_ENFORCED
+            # (which disables ACLs outright). This one bucket genuinely needs
+            # ACLs: CloudFront's distribution-level access logging (wired up
+            # in FrontendStack via log_bucket=) is the older "standard logging
+            # v1" feature, and it has no bucket-policy alternative -- CloudFront
+            # itself writes an ACL grant onto the target bucket at distribution
+            # creation time, full stop. This was the actual cause of the first
+            # real deploy's failure: CloudFront's own API call to add that
+            # grant was rejected because ACLs were disabled. (S3's OWN server
+            # access logging on UploadBucket/SiteBucket below is unaffected
+            # either way -- that delivery mechanism already uses a bucket
+            # policy, not an ACL.) BUCKET_OWNER_PREFERRED still keeps every
+            # object owned by this account; it just stops blocking that one
+            # external grant. Scoped to only this bucket, which holds no
+            # application data, rather than disabling BUCKET_OWNER_ENFORCED
+            # anywhere real data lives.
+            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
         )
