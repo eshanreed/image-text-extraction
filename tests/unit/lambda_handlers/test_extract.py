@@ -1,8 +1,13 @@
 """
 Tests for the extract handler (lambda/extract/handler.py) -- triggered by
-S3 via EventBridge, not API Gateway (see docs/decisions.md for why it's
-wired that way), so these tests build a synthetic S3 "Object Created"
-event rather than an API Gateway one.
+S3 via EventBridge, not a direct S3-to-Lambda notification and not API
+Gateway (see docs/decisions.md for why it's wired that way), so these
+tests build a synthetic EventBridge "Object Created" event: a top-level
+"detail" object, no "Records" array. This exact distinction is what broke
+on the first real deploy (see handler.py's module docstring) -- the
+original version of this file built the classic-notification shape
+instead, which let a genuine bug pass every local test while failing on
+every real invocation.
 
 Textract itself is patched directly rather than relying on moto's
 Textract mock: moto's coverage of the synchronous DetectDocumentText
@@ -22,11 +27,14 @@ import extract.handler as extract_handler
 BUCKET = "test-upload-bucket"
 
 
-def _s3_event(key: str) -> dict:
+def _eventbridge_event(key: str) -> dict:
+    # Trimmed to the fields the handler actually reads, but shaped like a
+    # real "Object Created" EventBridge event -- see handler.py's module
+    # docstring for the full envelope and why this matters.
     return {
-        "Records": [
-            {"s3": {"bucket": {"name": BUCKET}, "object": {"key": key}}}
-        ]
+        "detail-type": "Object Created",
+        "source": "aws.s3",
+        "detail": {"bucket": {"name": BUCKET}, "object": {"key": key}},
     }
 
 
@@ -54,7 +62,7 @@ def test_successful_extraction_updates_record_to_done(results_table, monkeypatch
     }
     monkeypatch.setattr(extract_handler, "_textract", fake_textract)
 
-    extract_handler.handler(_s3_event("uploads/rec-1.png"), context=None)
+    extract_handler.handler(_eventbridge_event("uploads/rec-1.png"), context=None)
 
     item = results_table.get_item(Key={"id": "rec-1"})["Item"]
     assert item["status"] == "done"
@@ -82,7 +90,7 @@ def test_textract_failure_marks_record_failed_and_reraises(results_table, monkey
     # it still surfaces as a Lambda error (and a CloudWatch alarm target)
     # instead of silently swallowing it -- see the comment in handler.py.
     with pytest.raises(RuntimeError, match="textract exploded"):
-        extract_handler.handler(_s3_event("uploads/rec-2.jpg"), context=None)
+        extract_handler.handler(_eventbridge_event("uploads/rec-2.jpg"), context=None)
 
     item = results_table.get_item(Key={"id": "rec-2"})["Item"]
     assert item["status"] == "failed"
@@ -106,7 +114,7 @@ def test_key_with_url_encoded_characters_is_unquoted(results_table, monkeypatch)
     monkeypatch.setattr(extract_handler, "_textract", fake_textract)
 
     extract_handler.handler(
-        _s3_event("uploads/rec+with+space.jpg"), context=None
+        _eventbridge_event("uploads/rec+with+space.jpg"), context=None
     )
 
     item = results_table.get_item(Key={"id": "rec with space"})["Item"]
