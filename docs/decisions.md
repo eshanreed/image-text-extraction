@@ -1,7 +1,8 @@
 # Design decisions
 
-Kept here so every choice below can be defended in an interview, not just
-pointed at.
+Why things are built the way they are — including the tradeoffs rejected
+along the way and the real bugs hit getting this deployed, not just the
+choices that ended up in the code.
 
 ## CDK language: Python
 
@@ -33,10 +34,9 @@ the data actually had relational structure.
 
 ## Frontend: plain HTML/CSS/JS, no framework
 
-The role being targeted (AWS ProServe, AIML) is judged on cloud
-architecture, IaC, and CI/CD — not frontend framework choice. Plain
-HTML/JS keeps the interview conversation on the parts of the project that
-matter for that role, and skips a build step in the pipeline.
+This project is about cloud architecture, IaC, and CI/CD — not frontend
+framework choice. Plain HTML/JS keeps the scope on the parts that actually
+matter here, and skips a build step in the pipeline.
 
 Rejected: React/similar. Legitimate if the goal were demonstrating
 frontend skills, but that's not what this project is for.
@@ -208,11 +208,95 @@ cdk-nag is pinned to exactly `2.38.2` in `infra/requirements.txt` — the
 latest release (3.0.2) throws a jsii runtime error against current
 aws-cdk-lib versions.
 
+## CI/CD: GitHub Actions with OIDC, no stored AWS credentials
+
+Two workflows (`.github/workflows/`):
+
+- **`pr.yml`** — every PR into `main`: ruff, Bandit, pytest (24 tests), and
+  `cdk synth` (which also runs cdk-nag, wired in as an Aspect in `app.py`).
+  Nothing here touches real AWS — no credentials configured at all, since
+  the stacks are environment-agnostic (no account/region pinned), so synth
+  never needs to look anything up in a real account.
+- **`deploy.yml`** — every push to `main`: deploys the dev stacks
+  automatically, then the prod stacks, gated behind a GitHub Environment
+  (`production`) with a required reviewer. That gate is entirely the
+  environment's own configuration, not anything in the workflow file, so
+  reviewers can change later without touching this repo.
+
+Both jobs authenticate via GitHub's native OIDC federation
+(`aws-actions/configure-aws-credentials`, `id-token: write` permission) —
+a short-lived token is exchanged for temporary AWS credentials on each run,
+so there are no long-lived access keys stored in the repo or in GitHub
+secrets at all. See the IAM trust-policy debugging story below for the
+part of this that didn't work on the first attempt.
+
+## Real problems debugged getting this deployed
+
+These happened during the first live deploy, not while writing the code —
+worth remembering as concrete examples, since "read the error and fix it"
+undersells what each of these actually took.
+
+**OIDC trust-policy mismatch.** First deploy failed with a generic
+`Not authorized to perform sts:AssumeRoleWithWebIdentity`. Every visible
+piece of config — the trust policy JSON, the role ARN, the OIDC provider's
+audience — looked correct. Diagnosed by adding a temporary debug step to
+the workflow that decoded the actual OIDC token's claims and printed them,
+which showed GitHub embedding immutable numeric repo/owner IDs in the
+subject claim (a GitHub security-hardening behavior that kicks in after a
+repo or account rename) that the trust policy hadn't accounted for. Fixed
+by updating the trust policy to match, and proactively covered the
+different subject-claim format GitHub uses for environment-gated jobs
+(the `deploy-prod` job above) before it caused the same failure later.
+
+**CloudFront access logging needs S3 ACLs.** The CloudFront distribution
+failed to create with "the S3 bucket you specified for CloudFront logs
+does not enable ACL access." Root cause: CloudFront's classic logging
+feature writes an ACL grant directly onto its target bucket — there's no
+bucket-policy alternative — and the shared `AccessLogBucket` had ACLs
+disabled (S3's now-default `BUCKET_OWNER_ENFORCED`). Fixed by allowing
+ACLs on just that one log-only bucket (`BUCKET_OWNER_PREFERRED`), keeping
+every bucket holding real application data fully ACL-free. See the comment
+on `AccessLogBucket` in `data_stack.py` for the full reasoning.
+
+**Missing S3 CORS on the upload bucket.** The app uploads images via a
+presigned URL — a direct browser-to-S3 PUT that never touches the API (see
+"Upload/extraction flow" above). CORS had been configured on API Gateway
+for the JSON endpoints, but that's a separate hop from the browser's PUT
+straight to S3, which needs its own CORS config on the bucket itself.
+Missing it surfaced as a generic browser "NetworkError" on every real
+upload attempt — the browser refused to even send the request. Fixed by
+adding a CORS rule on `UploadBucket`, scoped to just the `PUT` method the
+app actually uses.
+
+**Wrong event shape in the extraction Lambda.** The extract Lambda is
+triggered by S3 via EventBridge (see "Upload/extraction flow" above for
+why), but the handler was originally written expecting the event shape of
+a *direct* S3-to-Lambda notification — a different, incompatible envelope
+(no top-level `Records` array; EventBridge puts the bucket/object info
+under `detail` instead). Every real invocation threw an immediate
+`KeyError` before the code could even mark the record `failed`, so uploads
+just sat in `pending` forever with no visible error outside that
+function's own CloudWatch Logs. The bug passed every unit test because the
+test itself built a synthetic event using the same wrong shape the handler
+expected — code and test agreed with each other while both disagreed with
+what AWS actually sends. Fixed both the handler and the test to match
+EventBridge's real event envelope; see the module docstring in
+`lambda/extract/handler.py` for the full event shape.
+
+**New-account service restrictions.** Also hit and resolved along the way:
+a newer AWS account defaults to a "Free Plan" tier that blocks
+usage-based AI services like Textract until the account is explicitly
+upgraded to the standard paid plan, and a related IAM/billing gap — a
+non-root IAM user can't reach Billing console pages at all until root
+explicitly flips an account-level "activate IAM access to billing" switch,
+which no IAM policy can substitute for.
+
 ## Open / not yet decided
 
-- GitHub Actions workflows (PR checks, main-branch deploy with an approval
-  gate) — not yet built.
-- AWS OIDC setup for GitHub Actions to deploy without stored credentials —
-  needs one-time AWS console work.
-- No live AWS deployment has happened yet. Everything above is verified
-  via `cdk synth` (cdk-nag included) and unit tests only.
+- Cognito-based per-user auth (see "Auth: none in v1" above) — documented
+  stretch feature, not started.
+- Async Textract (job + SNS/Step Functions, for documents over the current
+  10MB/single-page scope) — documented stretch feature, not started.
+- Separate AWS accounts per environment instead of name-based separation
+  in one account (see "Environments" above) — worth describing as the
+  production-grade next step, not built here.

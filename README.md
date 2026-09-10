@@ -1,9 +1,9 @@
-# Image Text Extraction — AWS Portfolio Project
+# Image Text Extraction
 
-A small 3-tier web app that extracts text from uploaded images using Amazon
-Textract. Built as a portfolio piece to have something concrete to walk
-through in interviews (see `docs/decisions.md` for the reasoning behind
-every non-trivial choice).
+A serverless 3-tier web app that extracts text from uploaded images using
+Amazon Textract, deployed on AWS with CDK and a GitHub Actions CI/CD
+pipeline. See `docs/decisions.md` for the reasoning behind every
+non-trivial choice, including the real bugs hit getting it deployed.
 
 ## Architecture at a glance
 
@@ -48,8 +48,11 @@ tests/unit/     CDK stack tests (aws_cdk.assertions) and Lambda unit tests
 
 ## Status
 
-Scaffolding in progress. See `docs/decisions.md` for what's been decided
-and what's still open.
+Built, deployed, and confirmed working end-to-end in a live dev
+environment (real image upload → Textract extraction → result shown in the
+UI). The PR and deploy GitHub Actions workflows are both live, authenticating
+to AWS via OIDC with no stored credentials. See `docs/decisions.md` for the
+reasoning behind what's here and what's deliberately out of scope for v1.
 
 ## Local setup
 
